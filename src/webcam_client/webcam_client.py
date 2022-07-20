@@ -78,7 +78,7 @@ def annotate_info(frame, frame_skip, display_info, display_bounding_boxes, model
     :return: annotated frame
     """
 
-    info_text = f"Clothing logo obfuscator. \n\n" \
+    info_text = f"People detector! \n\n" \
                 f"press ESC or q to quit" \
                 f"press 'i' to toggle info \n" \
                 f"press 'b' to toggle bounding boxes \n" \
@@ -162,21 +162,6 @@ def annotate_bounding_boxes(frame, labels, scores, bboxes):
     return frame
 
 
-def save_frame(frame, save_dir, ext='jpg'):
-    """
-    Saves annotated cv2 frame from webclient to a specified local directory.
-    :param frame: annotated cv2 frame to same
-    :param save_dir: directory to save frame to
-    :param ext: file type, e.g. 'jpg' or 'png'
-    :return:
-    """
-    frame_time = datetime.now()
-    frame_name = f'{frame_time.strftime("frame-%y-%m-%d_%H-%M-%S%f.")}{ext}'
-    frame_path = str(Path(save_dir / frame_name))
-    cv2.imwrite(frame_path, frame)
-    log.info(f"Saving picture to {frame_path}")
-
-
 def convert_to_jpg(frame, resolution):
     """
     Converts the captured frame to the desired resolution
@@ -185,30 +170,6 @@ def convert_to_jpg(frame, resolution):
     if not ret:
         raise Exception('Failed to set frame data')
     return jpeg
-
-
-def generate_gif_from_frame_dir(
-        frame_dir,
-        save_path,
-        duration=20,
-        loop=0):
-    """
-    Creates a gif from an saved frames output during live detection
-    :param frame_dir:
-    :param save_path:
-    :param duration: duration of gif
-    :param loop:
-    :return:
-    """
-
-    frame_paths = sorted(glob.glob(f'{frame_dir}/*.png'))
-    frames = [Image.open(f) for f in frame_paths]
-
-    frames[0].save(
-        fp=f'{save_path}.gif', format='GIF', save_all=True,
-        append_images=frames[1:], duration=duration, loop=loop)
-
-    return save_path
 
 
 def scale_bbox_dims(img, bbox, size=384):
@@ -235,7 +196,7 @@ def scale_bbox_dims(img, bbox, size=384):
     return bbox_min, bbox_max
 
 
-def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_path=None, save_frames=False):
+def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_path=None):
     """
         Perform human and logo object detection on live cv2 VideoCapture
     :param model1_number: type of model to load.
@@ -247,25 +208,18 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
     :param model1_path: path to model
     :param model2_number: secondary model type to load (optional, use for comparing models)
     :param model2_path: secondary model to load (optional)
-    :param save_frames: if True, save to tmp directory
     :return:
     """
 
-    cap = cv2.VideoCapture(0)
+    capture = cv2.VideoCapture(0)
     time.sleep(1)  # just to avoid that initial black frame
 
     frame_skip = 10
     frame_count = 0
 
-    winname = 'Clothing logo obfuscator- press ESC or Q to exit'
+    winname = 'People detector! - press ESC or Q to exit'
     cv2.namedWindow(winname)
     cv2.moveWindow(winname, 50, 50)
-
-    # Create tmp dir for this round of webcam frames
-    if save_frames:
-        dir_time = datetime.now()
-        frame_dir = Path(f'tmp/{dir_time.strftime("camera-frames-%y-%m-%d_%H-%M-%S")}')
-        os.makedirs(frame_dir, exist_ok=True)
 
     # Load model for predictions
     model_type, model = load_model(model1_number, model1_path)
@@ -277,7 +231,7 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
 
     while True:
         # Grab a single frame of video
-        ret, frame = cap.read()
+        ret, frame = capture.read()
         if not ret:
             raise RuntimeError('Failed to capture frame')
         if frame_count % frame_skip == 0:  # only analyze every n frames
@@ -290,11 +244,6 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
                 frame = annotate_bounding_boxes(frame, labels, scores, bboxes)
 
             cv2.imshow(winname, frame)
-
-            # Save images based on timestamp
-            if save_frames:
-                log.info(f"Saving frame to {frame_dir}")
-                save_frame(frame, frame_dir, ext='jpg')
 
         frame_count += 1
 
@@ -325,8 +274,8 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
                 model_number = model2_number
                 log.info(f"Loading model #{model2_number}")
 
-    # When everything done, release the capture
-    cap.release()
+    # When everything is done, release the capture
+    capture.release()
     cv2.destroyAllWindows()
 
 
@@ -344,8 +293,6 @@ if __name__ == '__main__':
     parser.add_argument('--model2-path', type=str,
                         dest='model2_path', default=None,
                         help='path to load trained second model from (optional)')
-    parser.add_argument('--save-frames', dest='save_frames', action='store_true',
-                        help='save frames to tmp directory')
     # Parse arguments
     args = parser.parse_args()
     model_number = args.model_number
@@ -353,12 +300,10 @@ if __name__ == '__main__':
 
     model2_number = args.model2_number
     model2_path = args.model2_path
-    save_frames = args.save_frames
 
     run_webcam(
         model1_number=model_number,
         model1_path=model_path,
         model2_number=model2_number,
         model2_path="models/model_3_step2_final.m",
-        save_frames=save_frames
     )
