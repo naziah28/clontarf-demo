@@ -82,6 +82,7 @@ def annotate_info(frame, frame_skip, display_info, display_bounding_boxes, model
                 f"press ESC or q to quit" \
                 f"press 'i' to toggle info \n" \
                 f"press 'b' to toggle bounding boxes \n" \
+                f"press 'o' to toggle obfuscation \n" \
                 f"press 'a' to decrease frame skip \n" \
                 f"press 's' to increase frame skip \n\n\n" \
                 f"display bounding boxes: {display_bounding_boxes}\n" \
@@ -249,7 +250,7 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
                 labels, scores, bboxes = predict_from_model(model_type, model, cv_img=frame)
                 frame = annotate_bounding_boxes(frame, labels, scores, bboxes, obfuscate_humans)
 
-                annotate_info(frame, frame_skip, display_info, display_bounding_box, model_number)
+            annotate_info(frame, frame_skip, display_info, display_bounding_box, model_number)
 
             cv2.imshow(winname, frame)
 
