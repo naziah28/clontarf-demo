@@ -103,7 +103,7 @@ def annotate_info(frame, frame_skip, display_info, display_bounding_boxes, model
         )
 
 
-def annotate_bounding_boxes(frame, labels, scores, bboxes):
+def annotate_bounding_boxes(frame, labels, scores, bboxes, obfuscate_humans=False):
     """
     Annotates a frame with scaled bounding boxes and obfuscated regions
     :param frame: frame to annotate
@@ -118,6 +118,14 @@ def annotate_bounding_boxes(frame, labels, scores, bboxes):
     for i, label in enumerate(labels):
         if CLASS_MAP[label] == 'human':
             human_bboxes.append(bboxes[i])
+
+            if obfuscate_humans: 
+                bbox = bboxes[i]
+                bbox_min, bbox_max = scale_bbox_dims(frame, bbox)
+                blurred_frame = cv2.blur(frame, (45, 45), cv2.BORDER_DEFAULT)
+                mask = np.zeros(frame.shape, dtype=np.uint8)
+                mask = cv2.rectangle(mask, bbox_min, bbox_max, (255,255,255), -1)
+                frame = np.where(mask != np.array([255, 255, 255]), frame, blurred_frame)
 
     # For each label, annotate and obfuscate if logo
     for i, label in enumerate(labels):
@@ -156,7 +164,6 @@ def annotate_bounding_boxes(frame, labels, scores, bboxes):
                 frame, f'{scores[i]:.2f} {CLASS_MAP[label]}',
                 (bbox_min[0], bbox_min[1]-5),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_MAP[CLASS_MAP[label]], 1)
-
             cv2.rectangle(frame, bbox_min, bbox_max, COLOR_MAP[CLASS_MAP[label]], 1)
 
     return frame
@@ -228,6 +235,7 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
     # Toogle boolean for displaying bounding boxes
     display_bounding_box = True
     display_info = True
+    obfuscate_humans = False 
 
     while True:
         # Grab a single frame of video
@@ -236,12 +244,12 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
             raise RuntimeError('Failed to capture frame')
         if frame_count % frame_skip == 0:  # only analyze every n frames
 
-            annotate_info(frame, frame_skip, display_info, display_bounding_box, model_number)
-
             if display_bounding_box:
                 # Inference time
                 labels, scores, bboxes = predict_from_model(model_type, model, cv_img=frame)
-                frame = annotate_bounding_boxes(frame, labels, scores, bboxes)
+                frame = annotate_bounding_boxes(frame, labels, scores, bboxes, obfuscate_humans)
+
+                annotate_info(frame, frame_skip, display_info, display_bounding_box, model_number)
 
             cv2.imshow(winname, frame)
 
@@ -264,6 +272,8 @@ def run_webcam(model1_number=None, model1_path=None, model2_number=None, model2_
             frame_skip += 5
         if k == ord('i'):
             display_info = not display_info
+        if k == ord('o'): 
+            obfuscate_humans = not obfuscate_humans
         if k == ord('1'):
             model_type, model = load_model(model1_number, model1_path)
             model_number = model1_number
